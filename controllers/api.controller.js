@@ -57,15 +57,15 @@ exports.sendNotification = (req, res) => {
 				}
 				console.log("reconResults Array", reconResults);
 				console.log("excelArry", excelResults);
-				createTableDemo(excelResults, societies);
+				createExcel(excelResults, societies);
 				res.send("done");
 			},
 		);
 	});
 };
 
-async function createTableDemo(tableData, societies) {
-	for (const table of societies) {
+async function createExcel(tableData, societies) {
+	for (const society of societies) {
 		const wb = new xl.Workbook({
 			jszip: {
 				compression: "DEFLATE",
@@ -118,7 +118,7 @@ async function createTableDemo(tableData, societies) {
 			startRow2 = startRow2 + 1;
 		});
 
-		wb.write(`./reconfiles/recon-${table.name}.xlsx`);
+		wb.write(`./reconfiles/recon-${society.name}.xlsx`);
 	}
 }
 
