@@ -1,0 +1,12 @@
+{"level":"error","message":"Query Worked Successfully: ","results":[{"OfflinePaymentAmount":159500,"OfflinePaymentCount":169,"OnlinePaymentAmount":29500,"OnlinePaymentCount":30,"PendingAmount":4500,"PendingCount":5,"RaisedAmount":193500,"RaisedCount":204}]}
+{"level":"error","message":"Query Worked Successfully: ","results":[{"OfflinePaymentAmount":0,"OfflinePaymentCount":0,"OnlinePaymentAmount":0,"OnlinePaymentCount":0,"PendingAmount":0,"PendingCount":0,"RaisedAmount":0,"RaisedCount":0}]}
+{"level":"error","message":"File Generated : 5bb9984d-525a-4b09-8f2c-a72200b76889.pdf"}
+{"level":"error","message":"Excel File Generated : edd789b2-4fdf-477d-bad5-0b2d5ea4e6f4.xlsx"}
+{"level":"error","message":"File Generated : 3620ea6c-7689-47d7-b19d-060375495141.pdf"}
+{"level":"error","message":"Excel File Generated : 3460cae6-0efb-4fea-883e-3ff8ccec2776.xlsx"}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgmlspWQqqKC0kk"},"message":"Message Processed Successfully","status":"SUCCESS"}}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgkffrL5LeuBktg"},"message":"Message Processed Successfully","status":"SUCCESS"}}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgkffrL5LeuBktg"},"message":"Message Processed Successfully","status":"SUCCESS"}}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgneeYGhrhWsxKw"},"message":"Message Processed Successfully","status":"SUCCESS"}}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgkxX401afz4HC4"},"message":"Message Processed Successfully","status":"SUCCESS"}}
+{"level":"error","message":"WHATSAPP RESPONSE RECEIVED : ","res":{"code":"200","data":{"messageid":"gBEGkZkgNGEUAgkxX401afz4HC4"},"message":"Message Processed Successfully","status":"SUCCESS"}}

@@ -3,5 +3,5 @@ const nApi = require("../controllers/napi.controller");
 var express = require("express");
 var router = express.Router();
 
-router.post("/notify", apiController.sendNotification);
+router.post("/", apiController.sendNotification);
 module.exports = router;

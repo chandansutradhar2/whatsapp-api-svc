@@ -6,21 +6,11 @@ const PDFDocument = require("pdfkit-table");
 const fs = require("fs");
 const { v4: uuidv4 } = require('uuid');
 var Client = require('ftp');
-var SSH2Promise = require('ssh2-promise');
-
-var sshconfig = {
-	host:"103.127.31.152",
-	port:"2222",
-	username: "devteam_karan",
-	password: "K@ran#131",
-}
-
-var ssh = new SSH2Promise(sshconfig);
-var sftp = ssh.sftp()
+var nodemailer = require('nodemailer');
 
 const sqlConfig = require("../sqlconfig");
 const { resolve } = require("path");
-
+ 
 var pool = mysql.createPool({
 	host: sqlConfig.host,
 	user: sqlConfig.username,
@@ -37,7 +27,7 @@ exports.sendNotification = (req, res) => {
 	let excelResults = [];
 	//1: query db for authorizer
 	pool.query(
-		`SELECT t.tenantid,t.name 'societyName',td.city  'City',t.address 'Society Address', u.firstName 'authorizerName',u.msisdn 'mobileNumber'
+		`SELECT t.tenantid,t.name 'societyName',td.city  'City',t.address 'Society Address', u.firstName 'authorizerName',u.msisdn 'mobileNumber',u.emailAddress
 		from tenant as t
 		JOIN tenantdetails td on td.tenantid = t.tenantid
 		JOIN usertenantassociation uta on t.tenantid  =  uta.tenantid
@@ -82,8 +72,6 @@ exports.sendNotification = (req, res) => {
 			var month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
 			let year = date_ob.getFullYear();
 
-			// prints date & time in YYYY-MM-DD format
-			console.log(year + "-" + month + "-" + day);
 			societies.forEach((society, idx) => {
 				society.authorizerData.forEach(authorizer => {
 					//console.log(element.tenantid);
@@ -109,12 +97,57 @@ exports.sendNotification = (req, res) => {
 			//let ref = await sendToRemoteServer(societies);
 			//console.log(typeof ref);
 			await sendTemplate(societies);
+			//await main().catch(console.error);
+			
 			res.send("done");
 		},
 	);
 };
 
+// async..await is not allowed in global scope, must use a wrapper
+async function main() {
+	// Generate test SMTP service account from ethereal.email
+	// Only needed if you don't have a real mail account for testing
+	let testAccount = await nodemailer.createTestAccount();
+  
+	// create reusable transporter object using the default SMTP transport
+	let transporter = nodemailer.createTransport({
+	  pool: true,
+	  host: "blacck-oops-smtp.stroeq.com",
+	  port: 587,
+	  secure: false, // true for 465, false for other ports
+	  auth: {
+		user: 'smtpprov-uaabagegj', // generated ethereal user
+		pass: 'Noida@131', // generated ethereal password
+	  },
+	  tls: {rejectUnauthorized: false}
+	});
 
+	// verify connection configuration
+	transporter.verify(function (error, success) {
+		if (error) {
+		console.log(error);
+		} else {
+		console.log("Server is ready to take our messages");
+		}
+	});
+  
+	// send mail with defined transport object
+	let info = await transporter.sendMail({
+	  from: '"TimePayOnline Smart Society" <info@timepayonline.in>', // sender address
+	  to: "karansaluja917@gmail.com, karan.saluja@npstx.com", // list of receivers
+	  subject: "Hello ✔", // Subject line
+	  text: "Hello world?", // plain text body
+	  html: "<b>Hello world?</b>", // html body
+	});
+	console.log("Message log: %s", info);
+	console.log("Message sent: %s", info.messageId); 
+	// Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+  
+	// Preview only available when sending through an Ethereal account
+	console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+	// Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+  }
 
 async function createPdf(society) {
 	return new Promise((resolve, reject) => {
@@ -172,25 +205,25 @@ async function createPdf(society) {
 	})
 }
 
-async function sendToRemoteServer(societies){
-	return new Promise((resolve, reject) => {
-		//Promise
-		ssh.connect().then(() => {
-		console.log("Connection established");
-		societies.forEach(ele => {
-				sftp.fastPut(`./recon/${ele.fileName}`, `/home/devteam_karan/recon/${ele.fileName}`).then(()=>{
-					console.log("Uploaded Successfully", ele.fileName);
-				}).catch((err)=>{
-					console.log(err);
-				}).finally(()=>{
-					ssh.close();
-				})
+// async function sendToRemoteServer(societies){
+// 	return new Promise((resolve, reject) => {
+// 		//Promise
+// 		ssh.connect().then(() => {
+// 		console.log("Connection established");
+// 		societies.forEach(ele => {
+// 				sftp.fastPut(`./recon/${ele.fileName}`, `/home/devteam_karan/recon/${ele.fileName}`).then(()=>{
+// 					console.log("Uploaded Successfully", ele.fileName);
+// 				}).catch((err)=>{
+// 					console.log(err);
+// 				}).finally(()=>{
+// 					ssh.close();
+// 				})
 
-			});	
-		})
-		resolve(true)
-	});
-}
+// 			});	
+// 		})
+// 		resolve(true)
+// 	});
+// }
 
 function readPdfFile(){
 	return new Promise((resolve,reject) => {
@@ -411,13 +444,22 @@ async function fetchExcelData(tenantId) {
 	});
 }
 
-async function sendExcel() {
+async function sendExcel(societies) {
 	//todo: whatsapp api call using axios to send excel file as content type
+	return new Promise((resolve, reject) => {
+		societies.forEach((whatsapp) => {
+			whatsapp.authorizerData.forEach(authorizer => {
+				if(authorizer.emailAddress != ''){
+					// send Email
+				}
+			});
+		});
+		resolve(true);
+	})
 }
 
 async function sendTemplate(society) {
 	//todo: whatsapp api call using axios to send parameter with template id
-	console.log('Method Called', society);
 	society.forEach((whatsapp) => {
 		whatsapp.msgs.forEach((msg) => {
 			console.log(msg);
