@@ -174,7 +174,7 @@ async function sendMail(societies){
 						to: authorizer.emailAddress,
 						//to: "karan.saluja@npstx.com",
 						subject: 'Payment Summary for '+ day+ "-"+ month + "-" + year,
-						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br>",
+						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br> Raised    :  '"+society.reconData.RaisedCount.toLocaleString('en-US')+"'  /  '"+society.reconData.RaisedAmount.toLocaleString('en-US')+"' <br> UPI Paid     :  '"+society.reconData.OnlinePaymentCount.toLocaleString('en-US')+"'  /  '"+society.reconData.OnlinePaymentAmount.toLocaleString('en-US')+"' <br> Other Paid  :  '"+society.reconData.OfflinePaymentCount.toLocaleString('en-US')+"'  /  '"+society.reconData.OfflinePaymentAmount.toLocaleString('en-US')+"' <br> Pending      :  '"+society.reconData.PendingCount.toLocaleString('en-US')+"'  /  '"+society.reconData.PendingAmount.toLocaleString('en-US')+"' <br> Kindly contact the Relationship Manager if you have any doubts or queries. <br> Shabnam : +91 9289911291 <br> Regards, <br> <b>Timepay</b> ",
 						attachments: [
 							{
 								filename: whatsapp.excelfileName+'.xlsx',
