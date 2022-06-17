@@ -7,7 +7,16 @@ const fs = require("fs");
 const { v4: uuidv4 } = require('uuid');
 var Client = require('ftp');
 var nodemailer = require('nodemailer');
-
+let transporter = nodemailer.createTransport({
+    host: 'blacck-oops-smtp.stroeq.com',
+    port: 587,
+    secure: false,
+    auth: {
+        user: 'smtpprov-uaabagegj',
+        pass: 'Noida@131'
+    },
+	tls: {rejectUnauthorized: false}
+});
 const logger = require('./config/winston');
 
 var SSH2Promise = require('ssh2-promise');
@@ -46,8 +55,8 @@ app.use((req, res, next) => {
 
 
 app.post("/api", (req, res) => {
-	//console.log(req.body.data);
 	let tenantIds = req.body.data;
+	var isMaintenanceRaise = req.body.isMaintenanceRaise;
 	let societies = [];
 	let authorizers = [];
 	let reconResults = [];
@@ -68,7 +77,7 @@ app.post("/api", (req, res) => {
 			authorizers = results;
 
 			for (const id of tenantIds) {
-				let tmp = await fetchReconData(id);
+				let tmp = await fetchReconData(id,isMaintenanceRaise);
 				societies.push({ tenantid: id, authorizerData: [], fileName: '', excelfileName: '', reconData: tmp[0], excelData: [] ,msgs:[]});
 			}
 			societies.forEach((society, idx) => {
@@ -78,16 +87,16 @@ app.post("/api", (req, res) => {
 			})
 			let index = 0;
 			for(const tid of tenantIds){
-				let excelTmp = await fetchExcelData(tid);
+				let excelTmp = await fetchExcelData(tid, isMaintenanceRaise);
 				excelTmp.forEach(ele=>{
 					societies[index].excelData.push(ele);
 				})
 				index++;
 			}
 			for(const soc of societies){
-				let fileName = await createPdf(soc);
+				let fileName = await createPdf(soc, isMaintenanceRaise);
 				soc.fileName = fileName;
-				let excName = await createTableDemo(soc);
+				let excName = await createTableDemo(soc, isMaintenanceRaise);
 				soc.excelfileName = excName;
 			}
 			let whatsappdata = [];
@@ -108,102 +117,202 @@ app.post("/api", (req, res) => {
 						"to":"919920346114",
 						"type": 'template',
 						"message": {
-							//"templateid":"12387", // Template id with pdf
-							"templateid": "12388", // Template id without pdf
+							//"templateid":"12556", // Template id with pdf
+							"templateid": `${req.body.templateid}`, // Template id without pdf
 							"url":"https://recon.timepayonline.com/recon/"+ society.fileName,
 							"filename": society.fileName,
-							"placeholders": [authorizer.societyName, authorizer.City, day+ "-"+ month + "-" + year, 
-											society.reconData.RaisedCount.toString(), society.reconData.RaisedAmount.toString(), 
-											society.reconData.OnlinePaymentCount.toString(), 
-											society.reconData.OnlinePaymentAmount.toString(), society.reconData.PendingCount.toString(), 
-											society.reconData.PendingAmount.toString(),"Shabnam"]
+							"placeholders": [authorizer.societyName, 
+								day+ "-"+ month + "-" + year, 
+								society.reconData.RaisedCount.toLocaleString('en-US'),
+								society.reconData.RaisedAmount.toLocaleString('en-US'),
+								society.reconData.OnlinePaymentCount.toLocaleString('en-US'),
+								society.reconData.OnlinePaymentAmount.toLocaleString('en-US'),
+								society.reconData.OfflinePaymentCount.toLocaleString('en-US'),
+								society.reconData.OfflinePaymentAmount.toLocaleString('en-US'),
+								society.reconData.PendingCount.toLocaleString('en-US'),
+								society.reconData.PendingAmount.toLocaleString('en-US')]
 						}
 					})
 					//console.log(whatsappdata);
 				});
 			})
-			await sendTemplate(societies);
+			//console.log(JSON.stringify(societies[0].msgs));
+			//await sendTemplate(societies);
+			//await sendMail();
 			
+			// logger.error({
+			// 	message: 'Society Generated Data  ', societies ,
+			// 	level: 'info',
+			// 	timepstamp: new Date()
+			// });
 			//logger.error(`${req.method} - "Error Found"  - ${req.originalUrl} - ${req.ip}`);
-			await sendLogFileToServer();
+			//await sendLogFileToServer();
 			res.send("done");
 		},
 	);
 })
 
+function addCommas(x) {
+	if (isNaN(x)) {
+		return '-';
+	}
+	x = (x + '').split('.');
+	return x[0].replace(/(\d{1,3})(?=(?:\d{3})+(?!\d))/g,'$1,')
+		   + (x.length > 1 ? ('.' + x[1]) : '');
+}
+async function sendMail(){
+	let mailOptions = {
+		from: '"Timepay Online" <info@timepayonline.com>',
+		to: 'karansaluja917@gmail.com',
+		subject: 'Teste Templete ✔',
+		html: "<h1>Good Evng</h1>"
+	};
+	
+	transporter.sendMail(mailOptions, (error, info) => {
+		if (error) {
+			return console.log(error);
+		}
+		console.log('Message %s sent: %s', info.messageId, info.response);
+	});
+}
 
-async function createPdf(society) {
+async function createPdf(society, isMaintenanceRaise) {
+	console.log(isMaintenanceRaise);
 	return new Promise((resolve, reject) => {
 		
 		try {
 
-			const headingColumnNames = [
-				{ label: "Flat No", property: 'flatNo' },
-				{ label: "Customer Name", property: 'custName'},
-				// { label: "Contact No", property: 'contactNo', width: 60, renderer: null },
-				{ label: "Raised Amount", property: 'raisedamt' },
-				{ label: "Received Amount", property: 'receivedamt' },
-				{ label: "Pending Amount", property: 'pendingamt'},
-				{ label: "Payment Method", property: 'paymentmethod'},
-				{ label: "RRN No", property: 'rrnNo'},
-				{ label: "TXN ID", property: 'txnid'},
-				{ label: "Created On", property: 'createdon'},
-			];
-	
-			const tableRows = [];
-	
-			society.excelData.forEach((emptable, idx) => {
-				if(emptable.RaisedAmount == null){
-					emptable.RaisedAmount = 0;
-				}
-				if(emptable.ReceivedAmount == null){
-					emptable.ReceivedAmount = 0;
-				}
-				if(emptable.PendingAmount == null){
-					emptable.PendingAmount = 0;
-				} 
-				let created_on;
-				if(emptable.created_on == null){
-					created_on = '';
-				}else{
-					created_on = emptable.created_on.toISOString().replace(/T/, ' ').replace(/\..+/, '').toString()
-				}
-				//emptable.created_on.getDate() + '/' + (emptable.created_on.getMonth()+1) + '/' + emptable.created_on.getFullYear()
-				let newTblRows = [emptable.FlatNo, emptable.CustomerName, emptable.RaisedAmount.toString(), emptable.ReceivedAmount.toString(), emptable.PendingAmount.toString() , "UPI", emptable.RRNNo, emptable.txnid, created_on];
-				tableRows.push(newTblRows);
-			});
-			//console.log(tableRows);
-	
-			// init document
-			let doc = new PDFDocument({ margin: 20, size: 'A4',layout : 'landscape' });
-			// save document
-			let filName = uuidv4();
-			doc.pipe(fs.createWriteStream(`./recon/${filName}.pdf`));
-	
-			// table 
-			const table = {
-				title: "Title",
-				subtitle: "",
-				headers: headingColumnNames,
-				rows: tableRows
-			};
-			// A4 595.28 x 841.89 (portrait) (about width sizes)
-			// width
-			doc.table(table, {
-				prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8),
-				prepareRow: (row, indexColumn, indexRow, rectRow, rectCell) => {
-					doc.font("Helvetica").fontSize(8);
-					indexColumn === 0 && doc.addBackground(rectRow, 'blue', 0.15);
-				},
-			});
-			// done!
-			doc.end();
-			logger.error({
-				message: 'File Generated : '+ `${filName}.pdf` ,
-				level: 'info'
-			});
-			resolve(`${filName}.pdf`);	
+			if(isMaintenanceRaise === 'Yes'){
 
+				const headingColumnNames = [
+					{ label: "Flat No", property: 'flatNo' },
+					{ label: "Customer Name", property: 'custName'},
+					// { label: "Contact No", property: 'contactNo', width: 60, renderer: null },
+					{ label: "Raised Amount", property: 'raisedamt' },
+					{ label: "Received Amount", property: 'receivedamt' },
+					{ label: "Pending Amount", property: 'pendingamt'},
+					{ label: "Payment Method", property: 'paymentmethod'},
+					{ label: "RRN No", property: 'rrnNo'},
+					{ label: "TXN ID", property: 'txnid'},
+					{ label: "Created On", property: 'createdon'},
+				];
+		
+				const tableRows = [];
+		
+				society.excelData.forEach((emptable, idx) => {
+					if(emptable.RaisedAmount == null){
+						emptable.RaisedAmount = 0;
+					}
+					if(emptable.ReceivedAmount == null){
+						emptable.ReceivedAmount = 0;
+					}
+					if(emptable.PendingAmount == null){
+						emptable.PendingAmount = 0;
+					} 
+					let created_on;
+					if(emptable.created_on == null){
+						created_on = '';
+					}else{
+						created_on = emptable.created_on.toISOString().replace(/T/, ' ').replace(/\..+/, '').toString()
+					}
+					//emptable.created_on.getDate() + '/' + (emptable.created_on.getMonth()+1) + '/' + emptable.created_on.getFullYear()
+					let newTblRows = [emptable.FlatNo, emptable.CustomerName, emptable.RaisedAmount.toString(), emptable.ReceivedAmount.toString(), emptable.PendingAmount.toString() , "UPI", emptable.RRNNo, emptable.txnid, created_on];
+					tableRows.push(newTblRows);
+				});
+				//console.log(tableRows);
+		
+				// init document
+				let doc = new PDFDocument({ margin: 20, size: 'A4',layout : 'landscape' });
+				// save document
+				let filName = uuidv4();
+				doc.pipe(fs.createWriteStream(`./recon/${filName}.pdf`));
+		
+				// table 
+				const table = {
+					title: "Payment Summary",
+					subtitle: "",
+					headers: headingColumnNames,
+					rows: tableRows
+				};
+				// A4 595.28 x 841.89 (portrait) (about width sizes)
+				// width
+				doc.table(table, {
+					prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8),
+					prepareRow: (row, indexColumn, indexRow, rectRow, rectCell) => {
+						doc.font("Helvetica").fontSize(8);
+						indexColumn === 0 && doc.addBackground(rectRow, 'blue', 0.15);
+					},
+				});
+				// done!
+				doc.end();
+				logger.error({
+					message: 'File Generated : '+ `${filName}.pdf` ,
+					level: 'info'
+				});
+				resolve(`${filName}.pdf`);
+
+			}else{
+
+				const headingColumnNames = [
+					{ label: "Created On", property: 'createdon'},
+					{ label: "Status", property: 'status'},
+					{ label: "RRN No", property: 'rrnNo'},
+					{ label: "TXN ID", property: 'txnid'},
+					{ label: "Merchant VPA", property: 'merchantvpa' },
+					{ label: "Received Amount", property: 'receivedamt'},
+					{ label: "Payment Method", property: 'paymentmethod'},
+					
+				];
+		
+				const tableRows = [];
+				society.excelData.forEach((emptable, idx) => {
+					if(emptable.ReceivedAmount == null){
+						emptable.ReceivedAmount = 0;
+					}
+					 
+					let created_on;
+					if(emptable.created_on == null){
+						created_on = '';
+					}else{
+						created_on = emptable.created_on.toISOString().replace(/T/, ' ').replace(/\..+/, '').toString()
+					}
+					//emptable.created_on.getDate() + '/' + (emptable.created_on.getMonth()+1) + '/' + emptable.created_on.getFullYear()
+					let newTblRows = [created_on,emptable.status, emptable.RRNNo, emptable.txnid,emptable.MerchantVPA, emptable.ReceivedAmount.toString(), emptable.PaymentMode];
+					tableRows.push(newTblRows);
+				});
+				//console.log(tableRows);
+		
+				// init document
+				let doc = new PDFDocument({ margin: 20, size: 'A4',layout : 'landscape' });
+				// save document
+				let filName = uuidv4();
+				doc.pipe(fs.createWriteStream(`./recon/${filName}.pdf`));
+		
+				// table 
+				const table = {
+					title: "Payment Summary",
+					subtitle: "",
+					headers: headingColumnNames,
+					rows: tableRows
+				};
+				// A4 595.28 x 841.89 (portrait) (about width sizes)
+				// width
+				doc.table(table, {
+					prepareHeader: () => doc.font("Helvetica-Bold").fontSize(8),
+					prepareRow: (row, indexColumn, indexRow, rectRow, rectCell) => {
+						doc.font("Helvetica").fontSize(8);
+						indexColumn === 0 && doc.addBackground(rectRow, 'blue', 0.15);
+					},
+				});
+				// done!
+				doc.end();
+				logger.error({
+					message: 'File Generated : '+ `${filName}.pdf` ,
+					level: 'info'
+				});
+				resolve(`${filName}.pdf`);
+
+			}
 		} catch (error) {
 			logger.error({
 				message: 'Log Printed from Create PDF Module : '+ error,
@@ -256,68 +365,129 @@ function readPdfFile(){
 	})
 }
 
-async function createTableDemo(societies) {
+async function createTableDemo(societies, isMaintenanceRaise) {
+
 	return new Promise((resolve, reject) => {
 		try {
 
-			const wb = new xl.Workbook({
-				jszip: {
-					compression: "DEFLATE",
-				},
-		
-				dateFormat: "m/d/yy hh:mm:ss",
-			});
-			const ws = wb.addWorksheet(
-				`${new Date().getDate().toLocaleString()}-${new Date().toLocaleString('default', { month: 'long' })}-${new Date().getFullYear()}`,
-			);
-			const headingColumnNames = [
-				"Flat No",
-				"Customer Name",
-				"Raised Amount",
-				"Received Amount",
-				"Pending Amount",
-				"Payment Method",
-				"RRN No",
-				"TXN ID",
-				"Created On",
-				"Status",
-			];
-		
-			let startRow = 1;
-			let startCol = 1;
-			headingColumnNames.forEach((heading) => {
-				ws.cell(startRow, startCol).string(heading);
-				startCol = startCol + 1;
-			});
-		
-			//for col that needs to be created
-			let startRow2 = 2;
-			societies.excelData.forEach((table, idx) => {
-				let startCol = 1;
-				for (const prop in table) {
-					if (table[prop] === null || table[prop] === undefined) {
-						ws.cell(startRow2, startCol).toString();
-					} else if (typeof table[prop] == "number") {
-						ws.cell(startRow2, startCol).number(table[prop]);
-					} else if (typeof table[prop] == "string") {
-						ws.cell(startRow2, startCol).string(table[prop].toString());
-					} else if (typeof table[prop] == "object") {
-						ws.cell(startRow2, startCol).date(table[prop]).style({ numberFormat: 'yyyy-mm-dd hh:mm:ss' });
-					} else {
-						ws.cell(startRow2, startCol).string(table[prop]);
-					}
-					startCol = startCol + 1;
-				}
-				startRow2 = startRow2 + 1;
-			});
-			let fileName = uuidv4();
-			wb.write(`./reconfiles/${fileName}.xlsx`);
-			logger.error({
-				message: 'Excel File Generated : '+ `${fileName}.xlsx` ,
-				level: 'info'
-			});
-			resolve(fileName);
+			if(isMaintenanceRaise === 'Yes'){
+
+				const wb = new xl.Workbook({
+					jszip: {
+						compression: "DEFLATE",
+					},
 			
+					dateFormat: "m/d/yy hh:mm:ss",
+				});
+				const ws = wb.addWorksheet(
+					`${new Date().getDate().toLocaleString()}-${new Date().toLocaleString('default', { month: 'long' })}-${new Date().getFullYear()}`,
+				);
+				const headingColumnNames = [
+					"Flat No",
+					"Customer Name",
+					"Raised Amount",
+					"Received Amount",
+					"Pending Amount",
+					"Payment Method",
+					"RRN No",
+					"TXN ID",
+					"Created On",
+					"Status",
+				];
+			
+				let startRow = 1;
+				let startCol = 1;
+				headingColumnNames.forEach((heading) => {
+					ws.cell(startRow, startCol).string(heading);
+					startCol = startCol + 1;
+				});
+			
+				//for col that needs to be created
+				let startRow2 = 2;
+				societies.excelData.forEach((table, idx) => {
+					let startCol = 1;
+					for (const prop in table) {
+						if (table[prop] === null || table[prop] === undefined) {
+							ws.cell(startRow2, startCol).toString();
+						} else if (typeof table[prop] == "number") {
+							ws.cell(startRow2, startCol).number(table[prop]);
+						} else if (typeof table[prop] == "string") {
+							ws.cell(startRow2, startCol).string(table[prop].toString());
+						} else if (typeof table[prop] == "object") {
+							ws.cell(startRow2, startCol).date(table[prop]).style({ numberFormat: 'yyyy-mm-dd hh:mm:ss' });
+						} else {
+							ws.cell(startRow2, startCol).string(table[prop]);
+						}
+						startCol = startCol + 1;
+					}
+					startRow2 = startRow2 + 1;
+				});
+				let fileName = uuidv4();
+				wb.write(`./reconfiles/${fileName}.xlsx`);
+				logger.error({
+					message: 'Excel File Generated : '+ `${fileName}.xlsx` ,
+					level: 'info'
+				});
+				resolve(fileName);
+
+			}else{
+
+				const wb = new xl.Workbook({
+					jszip: {
+						compression: "DEFLATE",
+					},
+			
+					dateFormat: "m/d/yy hh:mm:ss",
+				});
+				const ws = wb.addWorksheet(
+					`${new Date().getDate().toLocaleString()}-${new Date().toLocaleString('default', { month: 'long' })}-${new Date().getFullYear()}`,
+				);
+				const headingColumnNames = [
+					"Created On",
+					"Status",
+					"RRN No",
+					"TXN ID",
+					"Merchant VPA",
+					"Received Amount",
+					"Payment Method",
+				];
+			
+				let startRow = 1;
+				let startCol = 1;
+				headingColumnNames.forEach((heading) => {
+					ws.cell(startRow, startCol).string(heading);
+					startCol = startCol + 1;
+				});
+			
+				//for col that needs to be created
+				let startRow2 = 2;
+				societies.excelData.forEach((table, idx) => {
+					let startCol = 1;
+					for (const prop in table) {
+						if (table[prop] === null || table[prop] === undefined) {
+							ws.cell(startRow2, startCol).toString();
+						} else if (typeof table[prop] == "number") {
+							ws.cell(startRow2, startCol).number(table[prop]);
+						} else if (typeof table[prop] == "string") {
+							ws.cell(startRow2, startCol).string(table[prop].toString());
+						} else if (typeof table[prop] == "object") {
+							ws.cell(startRow2, startCol).date(table[prop]).style({ numberFormat: 'yyyy-mm-dd hh:mm:ss' });
+						} else {
+							ws.cell(startRow2, startCol).string(table[prop]);
+						}
+						startCol = startCol + 1;
+					}
+					startRow2 = startRow2 + 1;
+				});
+				let fileName = uuidv4();
+				wb.write(`./reconfiles/${fileName}.xlsx`);
+				logger.error({
+					message: 'Excel File Generated : '+ `${fileName}.xlsx` ,
+					level: 'info'
+				});
+				resolve(fileName);
+
+			}
 		} catch (error) {
 			logger.error({
 				message: 'Log Printed from Create Table Module : ', error,
@@ -371,11 +541,11 @@ async function createTableDemo(societies) {
 // 	}
 // }
 
-async function fetchReconData(tenantId) {
+async function fetchReconData(tenantId, isMaintenanceRaise) {
 	return new Promise((resolve, reject) => {
-		try {
-			pool.query(
-				`SELECT SUM(totalraisedCount) 'RaisedCount',SUM(totalraisedAmount) 'RaisedAmount',SUM(pendingCount) 'PendingCount',
+		let query = '';
+		if(isMaintenanceRaise === 'Yes'){
+			query = `SELECT SUM(totalraisedCount) 'RaisedCount',SUM(totalraisedAmount) 'RaisedAmount',SUM(pendingCount) 'PendingCount',
 					SUM(pendingAmount) 'PendingAmount',SUM(onlinepaymentCount) 'OnlinePaymentCount',SUM(onlinepaymentAmount) 'OnlinePaymentAmount',
 					SUM(offlinepaymentCount) 'OfflinePaymentCount',SUM(offlinepaymentAmount) 'OfflinePaymentAmount' FROM (
 					SELECT 	tn.name,    COUNT(1) totalraisedCount,    SUM(amount) totalraisedAmount,    SUM(CASE
@@ -424,8 +594,16 @@ async function fetchReconData(tenantId) {
 						join tenant tn on tn.tenantid=tr.societytenantid
 					WHERE
 						tr.societytenantid = ${tenantId} and DATE(tr.raised_date) >= '2022-06-01' and DATE(tr.raised_date) <= '2022-06-30'
-						) vw;
-						`,
+						) vw;`;
+		}else{
+			query = `SELECT '0' as RaisedCount, '0' AS RaisedAmount, '0' AS PendingCount, 
+					'0' AS PendingAmount, Count(id) 'OnlinePaymentCount', SUM(amount) 'OnlinePaymentAmount',
+					'0' AS 'OfflinePaymentCount',  '0' AS 'OfflinePaymentAmount' FROM  
+					payment_callback_log  where tenant_id= ${tenantId}`;
+		}
+		try {
+			pool.query(
+				query,
 				(err, results, fields) => {
 					
 					if (err) logger.error({ message: 'Log Printed from Fetch Recon Data Query : ', err, level: 'info'}); 
@@ -447,32 +625,39 @@ async function fetchReconData(tenantId) {
 	});
 }
 
-async function fetchExcelData(tenantId) {
+async function fetchExcelData(tenantId, isMaintenanceRaise) {
 	return new Promise((resolve, reject) => {
 		try {
+			let query = '';
+			if(isMaintenanceRaise === 'Yes'){
+				query = `SELECT 
+					concat(cd.code, '-', fl.flatno) 'FlatNo', us.firstName 'CustomerName',tr.amount 'RaisedAmount', tb.paidamount 'ReceivedAmount', 
+					ROUND(tr.amount - tb.paidamount) 'PendingAmount', tr.payment_method 'PaymentMode', tr.rrn 'RRNNo',  tr.txn_id 'txnid', tr.raised_date 'created_on',
+					CASE
+					WHEN tr.status  = 12 THEN "PARTIAL PAYMENT"
+					WHEN tr.status = 2 THEN "SUCCESS"
+					ELSE "Pending"
+				END as status
+				FROM 
+					transaction tr
+						JOIN
+					flatdetails fl ON fl.flatdetailsid = tr.flatdetailsid
+						JOIN
+					users us ON us.userid = tr.societyuserid 
+					left join (select sum(paidamount) paidamount, txn_id from transactiondetailsbreakup group by txn_id) tb on tb.txn_id=tr.txn_id 
+					join code cd on cd.codeid = fl.wing where tr.societytenantid = ${tenantId}
+					order by tr.raised_date desc`;
+			}else{
+				query = `SELECT created_on,status,rrn 'RRNNo', txn_id 'txnid',merchant_vpa 'MerchantVPA' , amount 'ReceivedAmount', 'UPI' As 'PaymentMode' FROM  payment_callback_log  where tenant_id= ${tenantId}`;
+				
+			}
 			pool.query(
-				`SELECT 
-				concat(cd.code, '-', fl.flatno) 'FlatNo', us.firstName 'CustomerName',tr.amount 'RaisedAmount', tb.paidamount 'ReceivedAmount', 
-				ROUND(tr.amount - tb.paidamount) 'PendingAmount', tr.payment_method 'PaymentMode', tr.rrn 'RRNNo',  tr.txn_id 'txnid', tr.raised_date 'created_on',
-				CASE
-				  WHEN tr.status  = 12 THEN "PARTIAL PAYMENT"
-				  WHEN tr.status = 2 THEN "SUCCESS"
-				  ELSE "Pending"
-			  END as status
-			FROM 
-				transaction tr
-					JOIN
-				flatdetails fl ON fl.flatdetailsid = tr.flatdetailsid
-					JOIN
-				users us ON us.userid = tr.societyuserid 
-				left join (select sum(paidamount) paidamount, txn_id from transactiondetailsbreakup group by txn_id) tb on tb.txn_id=tr.txn_id 
-				join code cd on cd.codeid = fl.wing where tr.societytenantid = ${tenantId}
-				order by tr.raised_date desc`,
-				(err, results, fields) => {
-					if (err) logger.error({ message: 'Log Printed from Fetch Excel Data module : ', err,level: 'info'}); 
-					
-					resolve(results);
-				},
+				query,
+					(err, results, fields) => {
+						if (err) logger.error({ message: 'Log Printed from Fetch Excel Data module : ', err,level: 'info'}); 
+						
+						resolve(results);
+					},
 			);
 		} catch (error) {
 			
@@ -499,10 +684,12 @@ async function sendExcel(societies) {
 }
 
 async function sendTemplate(society) {
+	console.log(society);
 	//todo: whatsapp api call using axios to send parameter with template id
 	setTimeout(() => {
 		society.forEach((whatsapp) => {
 			whatsapp.msgs.forEach((msg) => {
+
 				let axiosConfig = {
 					headers: {
 						'Content-Type': 'application/json',
@@ -510,21 +697,36 @@ async function sendTemplate(society) {
 					}
 				  };
 				try{
-					axios.post('https://api.pinbot.ai/v1/wamessage/send', msg, axiosConfig)
-					.then((res) => {
-						//.console.log("RESPONSE RECEIVED: ", res);
-						logger.error({
-							message: 'WHATSAPP RESPONSE RECEIVED : ',
-							level: 'info',
-							res: res.data
+					setTimeout(() => {
+						let optionData = {
+							"from": "+918920724833",
+							"contact": `${msg.to}`
+						}
+						axios.post('https://api.pinbot.ai/v1/wamessage/optin',optionData, axiosConfig).then((resp) => {
+							logger.error({
+								message: 'OPTIN RESPONSE RECEIVED : ',
+								level: 'info',
+								res: resp.data
+							});
+							if(resp.data.code === '200'){
+								axios.post('https://api.pinbot.ai/v1/wamessage/send', msg, axiosConfig)
+								.then((res) => {
+									//.console.log("RESPONSE RECEIVED: ", res);
+									logger.error({
+										message: 'WHATSAPP RESPONSE RECEIVED : ',
+										level: 'info',
+										res: res.data
+									});
+								})
+								.catch((err) => {
+									logger.error({
+										message: 'AXIOS ERROR : '+ err ,
+										level: 'info'
+									});
+								})
+							}
 						});
-					})
-					.catch((err) => {
-						logger.error({
-							message: 'AXIOS ERROR : '+ err ,
-							level: 'info'
-						});
-					})
+					}, 5000);
 				}catch (error) {
 					console.error(error)
 					logger.error({
@@ -534,8 +736,7 @@ async function sendTemplate(society) {
 				}
 			})
 		})
-		
-	}, 240000);
+	}, 420000);
 	//420000
 }
 
