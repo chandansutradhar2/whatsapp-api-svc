@@ -113,8 +113,8 @@ app.post("/api", (req, res) => {
 					societies[idx].msgs.push({
 						"tenantId": society.tenantid,
 						"from": '918920724833',
-						//"to": `91${authorizer.mobileNumber}`,
-						"to":"919920346114",
+						"to": `91${authorizer.mobileNumber}`,
+						//"to":"919920346114",
 						"type": 'template',
 						"message": {
 							//"templateid":"12556", // Template id with pdf
@@ -138,7 +138,7 @@ app.post("/api", (req, res) => {
 			})
 			//console.log(JSON.stringify(societies[0].msgs));
 			//await sendTemplate(societies);
-			//await sendMail();
+			await sendMail(societies);
 			
 			// logger.error({
 			// 	message: 'Society Generated Data  ', societies ,
@@ -160,20 +160,47 @@ function addCommas(x) {
 	return x[0].replace(/(\d{1,3})(?=(?:\d{3})+(?!\d))/g,'$1,')
 		   + (x.length > 1 ? ('.' + x[1]) : '');
 }
-async function sendMail(){
-	let mailOptions = {
-		from: '"Timepay Online" <info@timepayonline.com>',
-		to: 'karansaluja917@gmail.com',
-		subject: 'Teste Templete ✔',
-		html: "<h1>Good Evng</h1>"
-	};
-	
-	transporter.sendMail(mailOptions, (error, info) => {
-		if (error) {
-			return console.log(error);
-		}
-		console.log('Message %s sent: %s', info.messageId, info.response);
-	});
+async function sendMail(societies){
+
+	return new Promise((resolve, reject) => {
+		societies.forEach((whatsapp) => {
+			whatsapp.authorizerData.forEach(authorizer => {
+				//console.log(authorizer);
+				if(authorizer.emailAddress != ''){
+					// send Email
+					// current timestamp in milliseconds
+					let ts = Date.now();
+
+					let date_ob = new Date(ts);
+					var day = ("0" + date_ob.getDate()).slice(-2);
+					var month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
+					let year = date_ob.getFullYear();
+
+					let mailOptions = {
+						from: '"Timepay" <maintenance@timepayonline.com>',
+						//to: authorizer.emailAddress,
+						to: "karan.saluja@npstx.com",
+						subject: 'Payment Summary for '+ day+ "-"+ month + "-" + year,
+						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br>",
+						attachments: [
+							{
+								filename: whatsapp.excelfileName+'.xlsx',
+								path: './reconfiles/'+ whatsapp.excelfileName+ '.xlsx',
+							}
+						]
+					};
+					transporter.sendMail(mailOptions, (error, info) => {
+						if (error) {
+							return console.log(error);
+						}
+						//console.log(info);
+						console.log('Message %s sent: %s', info.messageId, info.response);
+					});
+				}
+			});
+		});
+		resolve(true);
+	})
 }
 
 async function createPdf(society, isMaintenanceRaise) {
@@ -684,7 +711,6 @@ async function sendExcel(societies) {
 }
 
 async function sendTemplate(society) {
-	console.log(society);
 	//todo: whatsapp api call using axios to send parameter with template id
 	setTimeout(() => {
 		society.forEach((whatsapp) => {
