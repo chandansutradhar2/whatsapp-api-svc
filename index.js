@@ -137,16 +137,9 @@ app.post("/api", (req, res) => {
 				});
 			})
 			//console.log(JSON.stringify(societies[0].msgs));
-			//await sendTemplate(societies);
+			await sendTemplate(societies);
 			await sendMail(societies);
-			
-			// logger.error({
-			// 	message: 'Society Generated Data  ', societies ,
-			// 	level: 'info',
-			// 	timepstamp: new Date()
-			// });
-			//logger.error(`${req.method} - "Error Found"  - ${req.originalUrl} - ${req.ip}`);
-			//await sendLogFileToServer();
+			await sendLogFileToServer();
 			res.send("done");
 		},
 	);
@@ -178,8 +171,8 @@ async function sendMail(societies){
 
 					let mailOptions = {
 						from: '"Timepay" <maintenance@timepayonline.com>',
-						//to: authorizer.emailAddress,
-						to: "karan.saluja@npstx.com",
+						to: authorizer.emailAddress,
+						//to: "karan.saluja@npstx.com",
 						subject: 'Payment Summary for '+ day+ "-"+ month + "-" + year,
 						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br>",
 						attachments: [
@@ -701,20 +694,6 @@ async function fetchExcelData(tenantId, isMaintenanceRaise) {
 	});
 }
 
-async function sendExcel(societies) {
-	//todo: whatsapp api call using axios to send excel file as content type
-	return new Promise((resolve, reject) => {
-		societies.forEach((whatsapp) => {
-			whatsapp.authorizerData.forEach(authorizer => {
-				if(authorizer.emailAddress != ''){
-					// send Email
-				}
-			});
-		});
-		resolve(true);
-	})
-}
-
 async function sendTemplate(society) {
 	//todo: whatsapp api call using axios to send parameter with template id
 	setTimeout(() => {
@@ -724,7 +703,7 @@ async function sendTemplate(society) {
 				let axiosConfig = {
 					headers: {
 						'Content-Type': 'application/json',
-							'apikey' : 'a089b0e1-a1f5-11ec-a7c7-9606c7e32d76'
+						'apikey' : 'a089b0e1-a1f5-11ec-a7c7-9606c7e32d76'
 					}
 				  };
 				try{
@@ -739,7 +718,7 @@ async function sendTemplate(society) {
 								level: 'info',
 								res: resp.data
 							});
-							if(resp.data.code === '200'){
+							if(resp.data.code === '200' || resp.data.code === 200){
 								axios.post('https://api.pinbot.ai/v1/wamessage/send', msg, axiosConfig)
 								.then((res) => {
 									//.console.log("RESPONSE RECEIVED: ", res);
@@ -751,8 +730,9 @@ async function sendTemplate(society) {
 								})
 								.catch((err) => {
 									logger.error({
-										message: 'AXIOS ERROR : '+ err ,
-										level: 'info'
+										message: 'AXIOS ERROR : ',
+										level: 'info',
+										res: err
 									});
 								})
 							}
@@ -761,8 +741,9 @@ async function sendTemplate(society) {
 				}catch (error) {
 					console.error(error)
 					logger.error({
-						message: 'WHATSAPP CATCH ERROR : '+ error ,
-						level: 'info'
+						message: 'WHATSAPP CATCH ERROR : ',
+						level: 'info',
+						res: error
 					});
 				}
 			})
