@@ -422,3 +422,6 @@
 {"level":"error","message":"Query Worked Successfully: ","results":[{"OfflinePaymentAmount":"0","OfflinePaymentCount":"0","OnlinePaymentAmount":8106,"OnlinePaymentCount":5,"PendingAmount":"0","PendingCount":"0","RaisedAmount":"0","RaisedCount":"0"}]}
 {"level":"error","message":"File Generated : 0ded67e5-33cd-4ab4-b5bd-c03811d31719.pdf"}
 {"level":"error","message":"Excel File Generated : be47863a-c5d4-41e9-a9e0-b9a2651aa17c.xlsx"}
+{"level":"error","message":"Query Worked Successfully: ","results":[{"OfflinePaymentAmount":"0","OfflinePaymentCount":"0","OnlinePaymentAmount":8106,"OnlinePaymentCount":5,"PendingAmount":"0","PendingCount":"0","RaisedAmount":"0","RaisedCount":"0"}]}
+{"level":"error","message":"File Generated : f982d019-8395-491e-be9b-0b1e84ab8ac9.pdf"}
+{"level":"error","message":"Excel File Generated : aa3628ef-75a7-44a0-bb07-9b69eb964521.xlsx"}
