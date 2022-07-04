@@ -137,9 +137,9 @@ app.post("/api", (req, res) => {
 				});
 			})
 			//console.log(JSON.stringify(societies[0].msgs));
-			await sendTemplate(societies);
+			///await sendTemplate(societies);
 			await sendMail(societies);
-			await sendLogFileToServer();
+			//await sendLogFileToServer();
 			res.send("done");
 		},
 	);
@@ -170,11 +170,11 @@ async function sendMail(societies){
 					let year = date_ob.getFullYear();
 
 					let mailOptions = {
-						from: '"Timepay" <maintenance@timepayonline.com>',
-						to: authorizer.emailAddress,
-						//to: "karan.saluja@npstx.com",
+						from: '"Timepay Maintenance" <info@timepayonline.in>',
+						//to: authorizer.emailAddress,
+						to: "karan.saluja@npstx.com",
 						subject: 'Payment Summary for '+ day+ "-"+ month + "-" + year,
-						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br> Raised    :  '"+society.reconData.RaisedCount.toLocaleString('en-US')+"'  /  '"+society.reconData.RaisedAmount.toLocaleString('en-US')+"' <br> UPI Paid     :  '"+society.reconData.OnlinePaymentCount.toLocaleString('en-US')+"'  /  '"+society.reconData.OnlinePaymentAmount.toLocaleString('en-US')+"' <br> Other Paid  :  '"+society.reconData.OfflinePaymentCount.toLocaleString('en-US')+"'  /  '"+society.reconData.OfflinePaymentAmount.toLocaleString('en-US')+"' <br> Pending      :  '"+society.reconData.PendingCount.toLocaleString('en-US')+"'  /  '"+society.reconData.PendingAmount.toLocaleString('en-US')+"' <br> Kindly contact the Relationship Manager if you have any doubts or queries. <br> Shabnam : +91 9289911291 <br> Regards, <br> <b>Timepay</b> ",
+						html: "<b>Payment Summary</b> <br/> Dear <b>'"+authorizer.societyName+"'</b> <br/> Recon Report : <b>'"+day+ "-"+ month + "-" + year+"'</b> <br><br> Raised    :  '"+whatsapp.reconData.RaisedCount.toLocaleString('en-US')+"'  /  '"+whatsapp.reconData.RaisedAmount.toLocaleString('en-US')+"' <br> UPI Paid     :  '"+whatsapp.reconData.OnlinePaymentCount.toLocaleString('en-US')+"'  /  '"+whatsapp.reconData.OnlinePaymentAmount.toLocaleString('en-US')+"' <br> Other Paid  :  '"+whatsapp.reconData.OfflinePaymentCount.toLocaleString('en-US')+"'  /  '"+whatsapp.reconData.OfflinePaymentAmount.toLocaleString('en-US')+"' <br> Pending      :  '"+whatsapp.reconData.PendingCount.toLocaleString('en-US')+"'  /  '"+whatsapp.reconData.PendingAmount.toLocaleString('en-US')+"' <br> Kindly contact the Relationship Manager if you have any doubts or queries. <br> Shabnam : +91 9289911291 <br> Regards, <br> <b>Timepay</b> ",
 						attachments: [
 							{
 								filename: whatsapp.excelfileName+'.xlsx',
